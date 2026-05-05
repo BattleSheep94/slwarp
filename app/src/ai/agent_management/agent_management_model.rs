@@ -389,7 +389,7 @@ impl AgentNotificationsModel {
                     "Task completed."
                 };
                 self.add_notification(
-                    title,
+                    title.clone(),
                     message.to_owned(),
                     NotificationCategory::Complete,
                     oz_agent,
@@ -399,6 +399,13 @@ impl AgentNotificationsModel {
                     metadata.branch,
                     ctx,
                 );
+                if is_child {
+                    ctx.emit(AgentManagementEvent::SendDesktopNotification {
+                        title,
+                        body: message.to_owned(),
+                        is_completed: true,
+                    });
+                }
             }
             ConversationStatus::Cancelled => {
                 let artifacts = self.flush_pending_artifacts(conversation_id);
@@ -421,7 +428,7 @@ impl AgentNotificationsModel {
             }
             ConversationStatus::Blocked { blocked_action } => {
                 self.add_notification(
-                    title,
+                    title.clone(),
                     blocked_action.clone(),
                     NotificationCategory::Request,
                     oz_agent,
@@ -431,6 +438,13 @@ impl AgentNotificationsModel {
                     metadata.branch,
                     ctx,
                 );
+                if is_child {
+                    ctx.emit(AgentManagementEvent::SendDesktopNotification {
+                        title,
+                        body: blocked_action.clone(),
+                        is_completed: false,
+                    });
+                }
             }
             ConversationStatus::Error => {
                 let artifacts = self.flush_pending_artifacts(conversation_id);
@@ -440,7 +454,7 @@ impl AgentNotificationsModel {
                     "Something went wrong."
                 };
                 self.add_notification(
-                    title,
+                    title.clone(),
                     message.to_owned(),
                     NotificationCategory::Error,
                     oz_agent,
@@ -450,6 +464,13 @@ impl AgentNotificationsModel {
                     metadata.branch,
                     ctx,
                 );
+                if is_child {
+                    ctx.emit(AgentManagementEvent::SendDesktopNotification {
+                        title,
+                        body: message.to_owned(),
+                        is_completed: false,
+                    });
+                }
             }
         }
     }
@@ -532,6 +553,15 @@ pub enum AgentManagementEvent {
     NotificationUpdated,
     /// All notifications were marked as read.
     AllNotificationsMarkedRead,
+    /// Request the workspace to send a native desktop notification for a child
+    /// agent. Emitted from `AgentNotificationsModel` because child agents'
+    /// hidden terminal views cannot reliably trigger the normal
+    /// `TerminalView`-based desktop notification path.
+    SendDesktopNotification {
+        title: String,
+        body: String,
+        is_completed: bool,
+    },
 }
 
 impl ConversationStatus {
